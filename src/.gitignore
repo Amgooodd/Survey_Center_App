@@ -1,0 +1,89 @@
+# === IDEs & Editors ===
+# IntelliJ/WebStorm/Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VS Code (uncomment if you want to ignore)
+#.vscode/
+
+# === Flutter/Dart ===
+# Build/output directories
+.build/
+.buildlog/
+.dart_tool/
+.pub/
+.pub-cache/
+**/build/
+
+# Generated files
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+**/doc/api/
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/Generated.xcconfig
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/macos/Flutter/GeneratedPluginRegistrant.*
+**/linux/flutter/ephemeral
+**/windows/flutter/ephemeral
+
+# Symbolication/obfuscation
+app.*.symbols
+app.*.map.json
+
+# === Android ===
+/android/.gradle/
+/android/app/build/
+/android/build/
+/android/local.properties
+/android/gradle.properties
+/android/key.properties
+/android/keystore.properties
+/android/app/debug.keystore
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# === iOS/macOS ===
+/ios/Pods/
+/ios/.symlinks/
+/ios/Flutter/App.framework
+/ios/Flutter/Flutter.framework
+/ios/Flutter/app.flx
+/ios/Flutter/app.zip
+/ios/Flutter/flutter_assets/
+/ios/Flutter/flutter_export_environment.sh
+/ios/build/
+/ios/Podfile.lock  # Optional: Uncomment to ignore
+
+/macos/build/
+
+# === Web/Desktop ===
+/build/web/
+/linux/build/
+/windows/build/
+
+# === Coverage/Testing ===
+coverage/
+!.test_coverage
+
+# === Miscellaneous ===
+*.log
+*.swp
+*.swo
+*.swn
+*.bak
+*.tmp
+.DS_Store
+.env
+.metadata
+.history/
+.atom/
+.swiftpm/
+migrate_working_dir/
+android/app/.cxx/Debug/6g1n3d4b/x86_64/configure_fingerprint.bin
+android/app/.cxx/Debug/6g1n3d4b/x86/configure_fingerprint.bin
+android/app/.cxx/Debug/6g1n3d4b/armeabi-v7a/configure_fingerprint.bin
+android/app/.cxx/Debug/6g1n3d4b/arm64-v8a/configure_fingerprint.bin

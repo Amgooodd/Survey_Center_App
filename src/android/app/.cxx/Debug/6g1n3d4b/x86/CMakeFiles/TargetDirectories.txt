@@ -1,0 +1,2 @@
+C:/Users/HEo/student_questionnaire/android/app/.cxx/Debug/6g1n3d4b/x86/CMakeFiles/edit_cache.dir
+C:/Users/HEo/student_questionnaire/android/app/.cxx/Debug/6g1n3d4b/x86/CMakeFiles/rebuild_cache.dir
