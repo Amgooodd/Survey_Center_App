@@ -55,28 +55,6 @@ Ensure the following are installed before setup:
    flutter run
    ```
 
-### 🍏 For macOS
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/AkumaHeo/student_questionnaire.git
-   cd survey-center
-   ```
-
-2. **Install Dependencies**
-   ```bash
-   flutter pub get
-   ```
-
-3. **Set up Firebase**
-   - Add iOS app to Firebase project.
-   - Replace `GoogleService-Info.plist` in `ios/Runner`.
-   - Ensure Xcode is configured correctly.
-
-4. **Run the App**
-   ```bash
-   flutter run
-   ```
-
 ---
 
 ## 🔧 Configuration
