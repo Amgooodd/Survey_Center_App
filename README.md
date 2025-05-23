@@ -31,7 +31,7 @@ Ensure the following are installed before setup:
 ### 🪟 For Windows
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/your-username/survey-center.git
+   git clone https://github.com/AkumaHeo/student_questionnaire.git
    cd survey-center
    ```
 
@@ -58,7 +58,7 @@ Ensure the following are installed before setup:
 ### 🍏 For macOS
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/your-username/survey-center.git
+   git clone https://github.com/AkumaHeo/student_questionnaire.git
    cd survey-center
    ```
 
