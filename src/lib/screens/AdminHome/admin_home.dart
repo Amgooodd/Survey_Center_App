@@ -65,7 +65,7 @@ class _FirstForAdminState extends State<FirstForAdmin> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Deleting Notfication and responses...',
+                            'Deleting...',
                             style: TextStyle(color: Colors.white, fontSize: 14),
                           ),
                           SizedBox(height: 4),
@@ -310,7 +310,8 @@ class _FirstForAdminState extends State<FirstForAdmin> {
         ('students', studentsSnapshot)
       ];
       
-      for (var (collectionName, snapshot) in collections) {
+    
+      for (var (_, snapshot) in collections) {
         List<List<DocumentSnapshot>> chunks = [];
         for (var i = 0; i < snapshot.docs.length; i += 500) {
           chunks.add(
@@ -1298,6 +1299,9 @@ class SurveyCard extends StatelessWidget {
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => SurveyDetailsScreen(survey: survey),
+                                  settings: RouteSettings(
+                                    arguments: ModalRoute.of(context)?.settings.arguments,
+                                  ),
                                 ),
                               );
                             },

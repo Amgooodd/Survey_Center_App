@@ -14,7 +14,21 @@ class SurveyDetailsScreen extends StatefulWidget {
 }
 
 class _SurveyDetailsScreenState extends State<SurveyDetailsScreen> {
-  bool _isDeleting = false;
+  Map<String, dynamic>? _currentAdminData;
+
+  @override
+  void initState() {
+    super.initState();
+    // Get the current route arguments when screen initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null) {
+        setState(() {
+          _currentAdminData = args;
+        });
+      }
+    });
+  }
 
   void _showDeletingDialog() {
     showDialog(
@@ -93,7 +107,6 @@ class _SurveyDetailsScreenState extends State<SurveyDetailsScreen> {
 
   Future<void> _deleteSurvey() async {
     try {
-      
       final surveyDoc = await FirebaseFirestore.instance
           .collection('surveys')
           .doc(widget.survey.id)
@@ -109,7 +122,6 @@ class _SurveyDetailsScreenState extends State<SurveyDetailsScreen> {
         });
       }
 
-      
       final notificationQuery = await FirebaseFirestore.instance
           .collection('notifications')
           .where('surveyId', isEqualTo: widget.survey.id)
@@ -120,7 +132,6 @@ class _SurveyDetailsScreenState extends State<SurveyDetailsScreen> {
           .where('surveyId', isEqualTo: widget.survey.id)
           .get();
 
-      
       List<List<DocumentSnapshot>> notificationChunks = [];
       for (var i = 0; i < notificationQuery.docs.length; i += 500) {
         notificationChunks.add(
@@ -131,7 +142,6 @@ class _SurveyDetailsScreenState extends State<SurveyDetailsScreen> {
         );
       }
 
-      
       List<List<DocumentSnapshot>> responseChunks = [];
       for (var i = 0; i < responsesQuery.docs.length; i += 500) {
         responseChunks.add(
@@ -142,7 +152,6 @@ class _SurveyDetailsScreenState extends State<SurveyDetailsScreen> {
         );
       }
 
-      
       for (var chunk in notificationChunks) {
         WriteBatch batch = FirebaseFirestore.instance.batch();
         for (var doc in chunk) {
@@ -151,7 +160,6 @@ class _SurveyDetailsScreenState extends State<SurveyDetailsScreen> {
         await batch.commit();
       }
 
-      
       for (var chunk in responseChunks) {
         WriteBatch batch = FirebaseFirestore.instance.batch();
         for (var doc in chunk) {
@@ -160,13 +168,11 @@ class _SurveyDetailsScreenState extends State<SurveyDetailsScreen> {
         await batch.commit();
       }
 
-      
       await FirebaseFirestore.instance
           .collection('surveys')
           .doc(widget.survey.id)
           .delete();
 
-      
       Navigator.pop(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -176,14 +182,14 @@ class _SurveyDetailsScreenState extends State<SurveyDetailsScreen> {
         ),
       );
 
-      
+      // Navigate back using the same arguments we had when entering this screen
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/firsrforadminn',
         (route) => false,
+        arguments: _currentAdminData,
       );
     } catch (e) {
-      
       Navigator.pop(context);
       
       print("Error deleting survey: $e");
