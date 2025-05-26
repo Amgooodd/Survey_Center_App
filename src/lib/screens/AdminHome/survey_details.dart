@@ -19,7 +19,7 @@ class _SurveyDetailsScreenState extends State<SurveyDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    // Get the current route arguments when screen initializes
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
@@ -182,7 +182,7 @@ class _SurveyDetailsScreenState extends State<SurveyDetailsScreen> {
         ),
       );
 
-      // Navigate back using the same arguments we had when entering this screen
+      
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/firsrforadminn',

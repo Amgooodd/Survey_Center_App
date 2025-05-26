@@ -175,40 +175,134 @@ class _StudentFormState extends State<StudentForm> {
   }
 
   Future<void> _fetchNotifications() async {
-    QuerySnapshot snapshot = await FirebaseFirestore.instance
-        .collection('notifications')
-        .where('studentId', isEqualTo: widget.studentId)
-        .where('isRead', isEqualTo: false)
-        .get();
+    try {
+      List<Map<String, dynamic>> allNotifications = [];
+      
+      
+      QuerySnapshot globalSnapshot = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('type', isEqualTo: 'global')
+          .get();
 
+      for (var doc in globalSnapshot.docs) {
+        var data = doc.data() as Map<String, dynamic>;
+        String notificationId = doc.id;
+        
+        
+        if (_isNotificationRelevantForStudent(data)) {
+          
+          Map<String, dynamic> isRead = data['isRead'] ?? {};
+          if (!isRead.containsKey(widget.studentId)) {
+            data['id'] = notificationId;
+            allNotifications.add(data);
+          }
+        }
+      }
+
+      
+      QuerySnapshot deadlineSnapshot = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('studentId', isEqualTo: widget.studentId)
+          .where('isRead', isEqualTo: false)
+          .where('title', isEqualTo: 'Survey About to End')
+          .get();
+
+      allNotifications.addAll(deadlineSnapshot.docs.map((doc) {
+        var data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }));
+
+      if (mounted) {
+        setState(() {
+          _notifications = allNotifications;
+        });
+      }
+    } catch (e) {
+      print("Error fetching notifications: $e");
+    }
+  }
+
+  bool _isNotificationRelevantForStudent(Map<String, dynamic> notification) {
+    List<String> targetDepts = List<String>.from(notification['targetDepartments'] ?? []);
+    bool requireExact = notification['requireExactGroup'] ?? false;
+    bool showOnlySelected = notification['showOnlySelectedDepartments'] ?? false;
     
-    if (mounted) {
-      setState(() {
-        _notifications = snapshot.docs.map((doc) {
-          var data = doc.data() as Map<String, dynamic>;
-          data['id'] = doc.id;
-          return data;
-        }).toList();
-      });
+    List<String> studentGroupComponents = widget.studentGroup
+        .split('/')
+        .map((e) => e.trim().toUpperCase())
+        .toList();
+
+    if (targetDepts.isEmpty) return true;
+
+    if (requireExact) {
+      if (targetDepts.length <= 2) {
+        String exactGroup = targetDepts.join('/');
+        return widget.studentGroup.toUpperCase() == exactGroup;
+      }
+      return false;
+    } else if (showOnlySelected) {
+      return studentGroupComponents.length == 1 &&
+          targetDepts.contains(studentGroupComponents[0]);
+    } else {
+      return targetDepts.any((dept) => studentGroupComponents.contains(dept));
     }
   }
 
   void _markNotificationAsRead(String notificationId) async {
-    await FirebaseFirestore.instance
-        .collection('notifications')
-        .doc(notificationId)
-        .delete();
-    _fetchNotifications();
+    try {
+      DocumentSnapshot notifDoc = await FirebaseFirestore.instance
+          .collection('notifications')
+          .doc(notificationId)
+          .get();
+
+      if (!notifDoc.exists) return;
+
+      var data = notifDoc.data() as Map<String, dynamic>;
+      if (data['type'] == 'global') {
+        
+        await FirebaseFirestore.instance
+            .collection('notifications')
+            .doc(notificationId)
+            .update({
+          'isRead.${widget.studentId}': true
+        });
+      } else {
+        
+        await FirebaseFirestore.instance
+            .collection('notifications')
+            .doc(notificationId)
+            .delete();
+      }
+      _fetchNotifications();
+    } catch (e) {
+      print("Error marking notification as read: $e");
+    }
   }
 
   void _markAllNotificationsAsRead() async {
-    for (var notification in _notifications) {
-      await FirebaseFirestore.instance
-          .collection('notifications')
-          .doc(notification['id'])
-          .delete();
+    try {
+      for (var notification in _notifications) {
+        if (notification['type'] == 'global') {
+          
+          await FirebaseFirestore.instance
+              .collection('notifications')
+              .doc(notification['id'])
+              .update({
+            'isRead.${widget.studentId}': true
+          });
+        } else {
+          
+          await FirebaseFirestore.instance
+              .collection('notifications')
+              .doc(notification['id'])
+              .delete();
+        }
+      }
+      _fetchNotifications();
+    } catch (e) {
+      print("Error marking all notifications as read: $e");
     }
-    _fetchNotifications();
   }
 
   @override
@@ -439,17 +533,32 @@ class _StudentFormState extends State<StudentForm> {
                   builder: (context, snapshot) {
                     String studentName = "Student";
                     if (snapshot.hasData && snapshot.data != null) {
-                      final data =
-                          snapshot.data!.data() as Map<String, dynamic>?;
-                      studentName = data?['name'] ?? "Student";
+                      final data = snapshot.data!.data() as Map<String, dynamic>?;
+                      String fullName = data?['name'] ?? "Student";
+                      
+                      List<String> nameParts = fullName.split(' ');
+                      studentName = nameParts.take(4).join(' ');  
                     }
-                    return Text(
-                      'Welcome $studentName',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: const Color.fromARGB(255, 28, 51, 95),
-                      ),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome $studentName',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: const Color.fromARGB(255, 28, 51, 95),
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Group: ${widget.studentGroup}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
                     );
                   },
                 ),
@@ -645,22 +754,31 @@ class _StudentFormState extends State<StudentForm> {
                                                 ),
                                                 onPressed: () async {
                                                   final surveyId = survey['id'];
-                                                  await FirebaseFirestore
-                                                      .instance
-                                                      .collection(
-                                                          'notifications')
-                                                      .where('studentId',
-                                                          isEqualTo:
-                                                              widget.studentId)
-                                                      .where('surveyId',
-                                                          isEqualTo: surveyId)
-                                                      .get()
-                                                      .then((snapshot) {
-                                                    for (var doc
-                                                        in snapshot.docs) {
-                                                      doc.reference.delete();
+                                                  
+                                                  
+                                                  QuerySnapshot notificationSnapshot = await FirebaseFirestore.instance
+                                                      .collection('notifications')
+                                                      .where('surveyId', isEqualTo: surveyId)
+                                                      .get();
+
+                                                  for (var doc in notificationSnapshot.docs) {
+                                                    var notifData = doc.data() as Map<String, dynamic>;
+                                                    if (notifData['type'] == 'global') {
+                                                      
+                                                      await FirebaseFirestore.instance
+                                                          .collection('notifications')
+                                                          .doc(doc.id)
+                                                          .update({
+                                                        'isRead.${widget.studentId}': true
+                                                      });
+                                                    } else {
+                                                      
+                                                      await doc.reference.delete();
                                                     }
-                                                  });
+                                                  }
+
+                                                  
+                                                  _fetchNotifications();
 
                                                   Navigator.push(
                                                     context,

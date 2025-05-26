@@ -122,24 +122,19 @@ class _CreateSurveyState extends State<CreateSurvey> {
         ..sort();
 
       final studentsQuery = FirebaseFirestore.instance.collection('students');
-      List<DocumentSnapshot> studentDocs = [];
       int recipientCount = 0;
 
       if (departments.contains('All')) {
-        
         QuerySnapshot snapshot = await studentsQuery.get();
-        studentDocs = snapshot.docs;
+        recipientCount = snapshot.size;
       } else {
         if (_requireExactGroupCombination) {
-          
           if (surveyDeptsUpper.length <= 2) {
-            
             final exactGroup = surveyDeptsUpper.join('/');
             QuerySnapshot snapshot =
                 await studentsQuery.where('group', isEqualTo: exactGroup).get();
-            studentDocs = snapshot.docs;
+            recipientCount = snapshot.size;
           } else {
-            
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                   content: Text(
@@ -148,38 +143,29 @@ class _CreateSurveyState extends State<CreateSurvey> {
             return;
           }
         } else if (_showOnlySelectedDepartments) {
-          
-          
           Set<String> processedIds = {};
-
           for (String dept in surveyDeptsUpper) {
             QuerySnapshot snapshot =
                 await studentsQuery.where('group', isEqualTo: dept).get();
-
             for (var doc in snapshot.docs) {
               if (!processedIds.contains(doc.id)) {
                 processedIds.add(doc.id);
-                studentDocs.add(doc);
+                recipientCount++;
               }
             }
           }
         } else {
-          
-          
           QuerySnapshot allStudentsSnapshot = await studentsQuery.get();
           Set<String> processedIds = {};
-
           for (var doc in allStudentsSnapshot.docs) {
             String group = (doc.data() as Map<String, dynamic>)['group'] ?? '';
             List<String> groupComponents =
                 group.split('/').map((e) => e.trim().toUpperCase()).toList();
-
-            
             for (String dept in surveyDeptsUpper) {
               if (groupComponents.contains(dept)) {
                 if (!processedIds.contains(doc.id)) {
                   processedIds.add(doc.id);
-                  studentDocs.add(doc);
+                  recipientCount++;
                 }
                 break;
               }
@@ -188,45 +174,37 @@ class _CreateSurveyState extends State<CreateSurvey> {
         }
       }
 
-      
-      recipientCount = studentDocs.length;
-
       if (recipientCount == 0) {
         print("No students found matching the criteria: $surveyDeptsUpper");
         return;
       }
 
-      print("Found $recipientCount students for notifications");
+      print("Found $recipientCount potential recipients");
 
-      
       await FirebaseFirestore.instance
           .collection('surveys')
           .doc(surveyId)
           .update({'recipientCount': recipientCount});
 
-      
-      final batch = FirebaseFirestore.instance.batch();
-      for (var studentDoc in studentDocs) {
-        final notificationRef =
-            FirebaseFirestore.instance.collection('notifications').doc();
-        batch.set(notificationRef, {
-          'surveyId': surveyId,
-          'title': 'New Survey: $surveyName',
-          'body': 'A new survey is available for your department',
-          'departments': departments,
-          'timestamp': FieldValue.serverTimestamp(),
-          'isRead': false,
-          'studentId': studentDoc.id,
-          'surveyName': surveyName,
-        });
-      }
+      await FirebaseFirestore.instance.collection('notifications').add({
+        'surveyId': surveyId,
+        'title': 'New Survey: $surveyName',
+        'body': 'A new survey is available for your department',
+        'departments': departments,
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': {},
+        'surveyName': surveyName,
+        'type': 'global',
+        'targetDepartments': surveyDeptsUpper,
+        'requireExactGroup': _requireExactGroupCombination,
+        'showOnlySelectedDepartments': _showOnlySelectedDepartments,
+      });
 
-      await batch.commit();
-      print("Successfully sent notifications to $recipientCount students");
+      print("Successfully created global notification for survey");
     } catch (e) {
-      print("Error creating notifications: $e");
+      print("Error creating notification: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to send notifications to students: $e")),
+        SnackBar(content: Text("Failed to create notification: $e")),
       );
     }
   }
