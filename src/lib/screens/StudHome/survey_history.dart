@@ -14,6 +14,8 @@ class _SurveyHistoryPageState extends State<SurveyHistoryPage> {
   final Map<String, dynamic> _editedAnswers = {};
   final Map<String, TextEditingController> _textControllers = {};
   final Map<String, bool> _isExpanded = {};
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   List<String> _existingSurveyIds = [];
 
@@ -26,6 +28,7 @@ class _SurveyHistoryPageState extends State<SurveyHistoryPage> {
   @override
   void dispose() {
     _textControllers.forEach((key, controller) => controller.dispose());
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -51,176 +54,202 @@ class _SurveyHistoryPageState extends State<SurveyHistoryPage> {
         ),
         centerTitle: true,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('students_responses')
-            .where('studentId', isEqualTo: widget.studentId)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: 'Search surveys...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase();
+                });
+              },
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('students_responses')
+                  .where('studentId', isEqualTo: widget.studentId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
 
-          if (snapshot.hasError) {
-            return Center(child: Text("An error occurred: ${snapshot.error}"));
-          }
+                if (snapshot.hasError) {
+                  return Center(child: Text("An error occurred: ${snapshot.error}"));
+                }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text("No survey responses found."));
-          }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(child: Text("No survey responses found."));
+                }
 
-          final filteredResponses = snapshot.data!.docs.where((response) {
-            return _existingSurveyIds.contains(response['surveyId']);
-          }).toList();
+                final filteredResponses = snapshot.data!.docs.where((response) {
+                  return _existingSurveyIds.contains(response['surveyId']);
+                }).toList();
 
-          return ListView.builder(
-            itemCount: filteredResponses.length,
-            itemBuilder: (context, index) {
-              var response = filteredResponses[index];
-              final responseId = response.id;
+                return ListView.builder(
+                  itemCount: filteredResponses.length,
+                  itemBuilder: (context, index) {
+                    var response = filteredResponses[index];
+                    final responseId = response.id;
 
-              return FutureBuilder<DocumentSnapshot>(
-                future: FirebaseFirestore.instance
-                    .collection('surveys')
-                    .doc(response['surveyId'])
-                    .get(),
-                builder: (context, surveySnapshot) {
-                  if (surveySnapshot.connectionState ==
-                      ConnectionState.waiting) {
-                    return Card(
-                      child: ListTile(
-                        title: Text("Loading survey..."),
-                      ),
-                    );
-                  }
-
-                  if (surveySnapshot.hasError) {
-                    return Card(
-                      child: ListTile(
-                        title: Text(
-                            "Error loading survey: ${surveySnapshot.error}"),
-                      ),
-                    );
-                  }
-
-                  if (!surveySnapshot.hasData || !surveySnapshot.data!.exists) {
-                    return Card(
-                      child: ListTile(
-                        title: Text("Survey data not found."),
-                      ),
-                    );
-                  }
-
-                  var survey = surveySnapshot.data!;
-                  final questions = survey['questions'] as List<dynamic>? ?? [];
-                  final answers =
-                      response['answers'] as Map<String, dynamic>? ?? {};
-
-                  return Card(
-                    margin: const EdgeInsets.all(10),
-                    color: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8.0),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.4),
-                            blurRadius: 5,
-                            spreadRadius: 2,
-                            offset: Offset(0, 2),
-                          )
-                        ],
-                      ),
-                      child: StatefulBuilder(
-                        builder: (context, setInnerState) {
-                          return ExpansionTile(
-                            title: Text(
-                              survey['name'] ?? "Unnamed Survey",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: const Color.fromARGB(255, 28, 51, 95),
-                              ),
+                    return FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance
+                          .collection('surveys')
+                          .doc(response['surveyId'])
+                          .get(),
+                      builder: (context, surveySnapshot) {
+                        if (surveySnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return Card(
+                            child: ListTile(
+                              title: Text("Loading survey..."),
                             ),
-                            initiallyExpanded: _isExpanded[responseId] ?? false,
-                            onExpansionChanged: (bool expanded) {
-                              setInnerState(() {
-                                _isExpanded[responseId] = expanded;
-                              });
-                            },
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                          );
+                        }
+
+                        if (surveySnapshot.hasError) {
+                          return Card(
+                            child: ListTile(
+                              title: Text(
+                                  "Error loading survey: ${surveySnapshot.error}"),
+                            ),
+                          );
+                        }
+
+                        if (!surveySnapshot.hasData || !surveySnapshot.data!.exists) {
+                          return SizedBox.shrink();
+                        }
+
+                        var survey = surveySnapshot.data!;
+                        final questions = survey['questions'] as List<dynamic>? ?? [];
+                        final answers =
+                            response['answers'] as Map<String, dynamic>? ?? {};
+                        
+                        
+                        final surveyName = survey['name']?.toString().toLowerCase() ?? '';
+                        if (_searchQuery.isNotEmpty && !surveyName.contains(_searchQuery)) {
+                          return SizedBox.shrink();
+                        }
+
+                        return Card(
+                          margin: const EdgeInsets.all(10),
+                          color: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8.0),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.4),
+                                  blurRadius: 5,
+                                  spreadRadius: 2,
+                                  offset: Offset(0, 2),
+                                )
+                              ],
+                            ),
+                            child: StatefulBuilder(
+                              builder: (context, setInnerState) {
+                                return ExpansionTile(
+                                  title: Text(
+                                    survey['name'] ?? "Unnamed Survey",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color.fromARGB(255, 28, 51, 95),
+                                    ),
+                                  ),
+                                  initiallyExpanded: _isExpanded[responseId] ?? false,
+                                  onExpansionChanged: (bool expanded) {
+                                    setInnerState(() {
+                                      _isExpanded[responseId] = expanded;
+                                    });
+                                  },
                                   children: [
-                                    Text("Your Answers:",
-                                        style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold)),
-                                    SizedBox(height: 10),
-                                    ...questions.map<Widget>((question) {
-                                      final answer =
-                                          answers[question['title']] ?? "";
-
-                                      if (_editingResponseId == responseId) {
-                                        if (question['type'] ==
-                                            'multiple_choice') {
-                                          _editedAnswers[question['title']] =
-                                              answer;
-                                        } else {
-                                          final controllerKey =
-                                              '${responseId}${question['title']}';
-                                          if (!_textControllers
-                                              .containsKey(controllerKey)) {
-                                            _textControllers[controllerKey] =
-                                                TextEditingController(
-                                                    text: answer);
-                                          }
-                                        }
-                                      }
-
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                    Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                              question['title'] ??
-                                                  "Untitled Question",
+                                          Text("Your Answers:",
                                               style: TextStyle(
+                                                  fontSize: 16,
                                                   fontWeight: FontWeight.bold)),
-                                          SizedBox(height: 5),
-                                          _editingResponseId == responseId
-                                              ? _buildEditableAnswer(
-                                                  question, answer)
-                                              : Text(answer.toString()),
                                           SizedBox(height: 10),
+                                          ...questions.map<Widget>((question) {
+                                            final answer =
+                                                answers[question['title']] ?? "";
+
+                                            if (_editingResponseId == responseId) {
+                                              if (question['type'] ==
+                                                  'multiple_choice') {
+                                                _editedAnswers[question['title']] =
+                                                    answer;
+                                              } else {
+                                                final controllerKey =
+                                                    '${responseId}${question['title']}';
+                                                if (!_textControllers
+                                                    .containsKey(controllerKey)) {
+                                                  _textControllers[controllerKey] =
+                                                      TextEditingController(
+                                                          text: answer);
+                                                }
+                                              }
+                                            }
+
+                                            return Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                    question['title'] ??
+                                                        "Untitled Question",
+                                                    style: TextStyle(
+                                                        fontWeight: FontWeight.bold)),
+                                                SizedBox(height: 5),
+                                                _editingResponseId == responseId
+                                                    ? _buildEditableAnswer(
+                                                        question, answer)
+                                                    : Text(answer.toString()),
+                                                SizedBox(height: 10),
+                                              ],
+                                            );
+                                          }).toList(),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.end,
+                                            children: [],
+                                          ),
                                         ],
-                                      );
-                                    }).toList(),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [],
+                                      ),
                                     ),
                                   ],
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          );
-        },
+                                );
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBarWidget(
         studentId: widget.studentId,

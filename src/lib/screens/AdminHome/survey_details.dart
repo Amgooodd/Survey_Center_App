@@ -14,8 +14,86 @@ class SurveyDetailsScreen extends StatefulWidget {
 }
 
 class _SurveyDetailsScreenState extends State<SurveyDetailsScreen> {
+  bool _isDeleting = false;
+
+  void _showDeletingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return WillPopScope(
+          onWillPop: () async => false,
+          child: Dialog(
+            backgroundColor: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Theme.of(context).primaryColor,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    'Deleting Survey...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Please wait while we delete the survey and all related data.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmation() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Confirm Deletion'),
+          content: const Text('Are you sure you want to delete this survey?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('No'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext); 
+                _showDeletingDialog(); 
+                await _deleteSurvey(); 
+              },
+              child: const Text('Yes'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _deleteSurvey() async {
     try {
+      
       final surveyDoc = await FirebaseFirestore.instance
           .collection('surveys')
           .doc(widget.survey.id)
@@ -31,39 +109,89 @@ class _SurveyDetailsScreenState extends State<SurveyDetailsScreen> {
         });
       }
 
-      await FirebaseFirestore.instance
-          .collection('surveys')
-          .doc(widget.survey.id)
-          .delete();
-
+      
       final notificationQuery = await FirebaseFirestore.instance
           .collection('notifications')
           .where('surveyId', isEqualTo: widget.survey.id)
           .get();
-      for (var doc in notificationQuery.docs) {
-        await doc.reference.delete();
-      }
 
       final responsesQuery = await FirebaseFirestore.instance
           .collection('students_responses')
           .where('surveyId', isEqualTo: widget.survey.id)
           .get();
-      for (var doc in responsesQuery.docs) {
-        await doc.reference.delete();
+
+      
+      List<List<DocumentSnapshot>> notificationChunks = [];
+      for (var i = 0; i < notificationQuery.docs.length; i += 500) {
+        notificationChunks.add(
+          notificationQuery.docs.sublist(
+            i,
+            i + 500 > notificationQuery.docs.length ? notificationQuery.docs.length : i + 500
+          )
+        );
       }
 
+      
+      List<List<DocumentSnapshot>> responseChunks = [];
+      for (var i = 0; i < responsesQuery.docs.length; i += 500) {
+        responseChunks.add(
+          responsesQuery.docs.sublist(
+            i,
+            i + 500 > responsesQuery.docs.length ? responsesQuery.docs.length : i + 500
+          )
+        );
+      }
+
+      
+      for (var chunk in notificationChunks) {
+        WriteBatch batch = FirebaseFirestore.instance.batch();
+        for (var doc in chunk) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+      }
+
+      
+      for (var chunk in responseChunks) {
+        WriteBatch batch = FirebaseFirestore.instance.batch();
+        for (var doc in chunk) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+      }
+
+      
+      await FirebaseFirestore.instance
+          .collection('surveys')
+          .doc(widget.survey.id)
+          .delete();
+
+      
+      Navigator.pop(context);
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Survey deleted successfully")),
+        const SnackBar(
+          content: Text("Survey deleted successfully"),
+          backgroundColor: Colors.green,
+        ),
       );
+
+      
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/firsrforadminn',
         (route) => false,
       );
     } catch (e) {
+      
+      Navigator.pop(context);
+      
       print("Error deleting survey: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to delete survey: $e")),
+        SnackBar(
+          content: Text("Failed to delete survey: $e"),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -97,34 +225,6 @@ class _SurveyDetailsScreenState extends State<SurveyDetailsScreen> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Survey has been reset and is now active.")),
-    );
-  }
-
-  void _showDeleteConfirmation() {
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Confirm Deletion'),
-          content: const Text('Are you sure you want to delete this survey?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('No'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.popUntil(
-                  context,
-                  (route) => route.settings.name == '/firsrforadminn',
-                );
-                await _deleteSurvey();
-              },
-              child: const Text('Yes'),
-            ),
-          ],
-        );
-      },
     );
   }
 

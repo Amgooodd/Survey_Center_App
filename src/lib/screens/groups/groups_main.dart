@@ -95,6 +95,28 @@ class _Group extends State<Group> {
                         );
                       },
                     ),
+                    SubjectCard(
+                      title: "CS/PHY",
+                      image: "assets/cs.png",
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          '/groupDetails',
+                          arguments: "CS/PHY",
+                        );
+                      },
+                    ),
+                    SubjectCard(
+                      title: "MATH",
+                      image: "assets/math.png",
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          '/groupDetails',
+                          arguments: "MATH",
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),

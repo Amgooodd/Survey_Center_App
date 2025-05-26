@@ -19,7 +19,9 @@ class _FirstForAdminState extends State<FirstForAdmin> {
   String _searchQuery = '';
   final Set<String> _selectedDepartments = {};
   String _selectedSortOption = 'newest';
-  final List<String> _departments = ['CS', 'Stat', 'Math'];
+  final List<String> _departments = ['CS', 'Stat', 'Math','PHY','Biology','chemistry'];
+  final ValueNotifier<String> _progressText = ValueNotifier<String>('');
+  OverlayEntry? _overlayEntry;
 
   @override
   void initState() {
@@ -41,81 +43,314 @@ class _FirstForAdminState extends State<FirstForAdmin> {
     setState(() {});
   }
 
+  void _showProgressOverlay(BuildContext context) {
+    _overlayEntry?.remove();
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+          child: Container(
+            height: 60,
+            color: Colors.black87,
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: ValueListenableBuilder<String>(
+              valueListenable: _progressText,
+              builder: (context, value, child) {
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Deleting Notfication and responses...',
+                            style: TextStyle(color: Colors.white, fontSize: 14),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            value,
+                            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                          ),
+                          SizedBox(height: 4),
+                          Container(
+                            height: 2,
+                            child: LinearProgressIndicator(
+                              backgroundColor: Colors.grey[800],
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Color.fromARGB(255, 253, 200, 0),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
   Future<void> _deleteAllInCollection(String collectionName) async {
     if (collectionName == 'surveys') {
-      final surveysCollection =
-          FirebaseFirestore.instance.collection('surveys');
+      final surveysCollection = FirebaseFirestore.instance.collection('surveys');
       final snapshot = await surveysCollection.get();
-      for (var doc in snapshot.docs) {
-        await FirebaseFirestore.instance.collection('backup').doc(doc.id).set({
-          ...doc.data(),
-          'backupTimestamp': FieldValue.serverTimestamp(),
-        });
+      
+      List<List<DocumentSnapshot>> chunks = [];
+      int chunkSize = 500;
+      
+      for (var i = 0; i < snapshot.docs.length; i += chunkSize) {
+        chunks.add(
+          snapshot.docs.sublist(
+            i,
+            i + chunkSize > snapshot.docs.length ? snapshot.docs.length : i + chunkSize
+          )
+        );
+      }
 
-        await doc.reference.delete();
+      int processedDocs = 0;
+      int totalDocs = snapshot.docs.length;
+
+      for (var chunk in chunks) {
+        WriteBatch backupBatch = FirebaseFirestore.instance.batch();
+        WriteBatch deleteBatch = FirebaseFirestore.instance.batch();
+        
+        for (var doc in chunk) {
+          
+          backupBatch.set(
+            FirebaseFirestore.instance.collection('backup').doc(doc.id),
+            {
+              ...doc.data() as Map<String, dynamic>,
+              'backupTimestamp': FieldValue.serverTimestamp(),
+            }
+          );
+          
+          
+          deleteBatch.delete(doc.reference);
+          
+          processedDocs++;
+          _progressText.value = 'Processing surveys: ${processedDocs}/${totalDocs}...';
+        }
+        
+        await backupBatch.commit();
+        await deleteBatch.commit();
       }
     } else {
       final collection = FirebaseFirestore.instance.collection(collectionName);
       final snapshot = await collection.get();
-      for (var doc in snapshot.docs) {
-        await doc.reference.delete();
+      
+      List<List<DocumentSnapshot>> chunks = [];
+      int chunkSize = 500;
+      
+      for (var i = 0; i < snapshot.docs.length; i += chunkSize) {
+        chunks.add(
+          snapshot.docs.sublist(
+            i,
+            i + chunkSize > snapshot.docs.length ? snapshot.docs.length : i + chunkSize
+          )
+        );
       }
-    }
-  }
 
-  Future<void> _resetAllSurveys() async {
-    try {
-      await _deleteAllInCollection('surveys');
+      int processedDocs = 0;
+      int totalDocs = snapshot.docs.length;
 
-      await FirebaseFirestore.instance.collection('notifications').get().then(
-          (snap) =>
-              Future.wait(snap.docs.map((doc) => doc.reference.delete())));
-      await FirebaseFirestore.instance
-          .collection('students_responses')
-          .get()
-          .then((snap) =>
-              Future.wait(snap.docs.map((doc) => doc.reference.delete())));
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("All surveys and related data deleted")),
-      );
-    } catch (e) {
-      print("Error: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to reset surveys: $e")),
-      );
+      for (var chunk in chunks) {
+        WriteBatch batch = FirebaseFirestore.instance.batch();
+        
+        for (var doc in chunk) {
+          batch.delete(doc.reference);
+          processedDocs++;
+          _progressText.value = 'Deleting ${processedDocs}/${totalDocs} students...';
+        }
+        
+        await batch.commit();
+      }
     }
   }
 
   Future<void> _deleteAllStudents() async {
     try {
+      _showProgressOverlay(context);
       await _deleteAllInCollection('students');
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("All student data deleted")),
+        SnackBar(
+          content: Text("All student data deleted successfully"),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+      
       print("Error: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to delete students: $e")),
+        SnackBar(
+          content: Text("Failed to delete students: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _resetAllSurveys() async {
+    try {
+      _showProgressOverlay(context);
+      _progressText.value = 'Starting survey reset...';
+      
+      
+      await _deleteAllInCollection('surveys');
+      
+      
+      final notificationsSnapshot = await FirebaseFirestore.instance.collection('notifications').get();
+      final responsesSnapshot = await FirebaseFirestore.instance.collection('students_responses').get();
+      
+      int totalDocs = notificationsSnapshot.docs.length + responsesSnapshot.docs.length;
+      int processedDocs = 0;
+      
+      
+      List<List<DocumentSnapshot>> notificationChunks = [];
+      for (var i = 0; i < notificationsSnapshot.docs.length; i += 500) {
+        notificationChunks.add(
+          notificationsSnapshot.docs.sublist(
+            i,
+            i + 500 > notificationsSnapshot.docs.length ? notificationsSnapshot.docs.length : i + 500
+          )
+        );
+      }
+      
+      for (var chunk in notificationChunks) {
+        WriteBatch batch = FirebaseFirestore.instance.batch();
+        for (var doc in chunk) {
+          batch.delete(doc.reference);
+          processedDocs++;
+          _progressText.value = 'Deleting related data: ${processedDocs}/${totalDocs}...';
+        }
+        await batch.commit();
+      }
+      
+      
+      List<List<DocumentSnapshot>> responseChunks = [];
+      for (var i = 0; i < responsesSnapshot.docs.length; i += 500) {
+        responseChunks.add(
+          responsesSnapshot.docs.sublist(
+            i,
+            i + 500 > responsesSnapshot.docs.length ? responsesSnapshot.docs.length : i + 500
+          )
+        );
+      }
+      
+      for (var chunk in responseChunks) {
+        WriteBatch batch = FirebaseFirestore.instance.batch();
+        for (var doc in chunk) {
+          batch.delete(doc.reference);
+          processedDocs++;
+          _progressText.value = 'Deleting related data: ${processedDocs}/${totalDocs}...';
+        }
+        await batch.commit();
+      }
+      
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("All surveys and related data deleted successfully"),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+      
+      print("Error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to reset surveys: $e"),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
 
   Future<void> _resetEverything() async {
     try {
+      _showProgressOverlay(context);
+      _progressText.value = 'Starting full app reset...';
+      
+      
+      final surveysSnapshot = await FirebaseFirestore.instance.collection('surveys').get();
+      final notificationsSnapshot = await FirebaseFirestore.instance.collection('notifications').get();
+      final responsesSnapshot = await FirebaseFirestore.instance.collection('students_responses').get();
+      final studentsSnapshot = await FirebaseFirestore.instance.collection('students').get();
+      
+      int totalDocs = surveysSnapshot.docs.length + 
+                      notificationsSnapshot.docs.length + 
+                      responsesSnapshot.docs.length + 
+                      studentsSnapshot.docs.length;
+      int processedDocs = 0;
+      
+      
       await _deleteAllInCollection('surveys');
-
-      await _deleteAllInCollection('notifications');
-      await _deleteAllInCollection('students_responses');
-      await _deleteAllInCollection('students');
-
+      processedDocs += surveysSnapshot.docs.length;
+      _progressText.value = 'Resetting app: ${processedDocs}/${totalDocs}...';
+      
+      
+      final collections = [
+        ('notifications', notificationsSnapshot),
+        ('students_responses', responsesSnapshot),
+        ('students', studentsSnapshot)
+      ];
+      
+      for (var (collectionName, snapshot) in collections) {
+        List<List<DocumentSnapshot>> chunks = [];
+        for (var i = 0; i < snapshot.docs.length; i += 500) {
+          chunks.add(
+            snapshot.docs.sublist(
+              i,
+              i + 500 > snapshot.docs.length ? snapshot.docs.length : i + 500
+            )
+          );
+        }
+        
+        for (var chunk in chunks) {
+          WriteBatch batch = FirebaseFirestore.instance.batch();
+          for (var doc in chunk) {
+            batch.delete(doc.reference);
+            processedDocs++;
+            _progressText.value = 'Resetting app: ${processedDocs}/${totalDocs}...';
+          }
+          await batch.commit();
+        }
+      }
+      
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("All data reset except admins")),
+        SnackBar(
+          content: Text("App reset completed successfully"),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+      
       print("Error: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Reset failed: $e")),
+        SnackBar(
+          content: Text("Failed to reset app: $e"),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -910,6 +1145,12 @@ class _FirstForAdminState extends State<FirstForAdmin> {
       ),
       bottomNavigationBar: BottomNavigationBarWidget(homee: true),
     );
+  }
+
+  @override
+  void dispose() {
+    _overlayEntry?.remove();
+    super.dispose();
   }
 }
 

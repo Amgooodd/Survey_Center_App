@@ -14,6 +14,7 @@ class CreateSurvey extends StatefulWidget {
 class _CreateSurveyState extends State<CreateSurvey> {
   final TextEditingController _surveyNameController = TextEditingController();
   List<Map<String, dynamic>> _questions = [];
+  bool _isSubmitting = false;
 
   final List<String> _departments = [
     'All',
@@ -21,7 +22,8 @@ class _CreateSurveyState extends State<CreateSurvey> {
     'Math',
     'CS',
     'Chemistry',
-    'biology'
+    'biology',
+    'PHY'
   ];
   List<String> _selectedDepartments = [];
   bool _allowMultipleSubmissions = false;
@@ -124,20 +126,20 @@ class _CreateSurveyState extends State<CreateSurvey> {
       int recipientCount = 0;
 
       if (departments.contains('All')) {
-        // If 'All' is selected, get all students
+        
         QuerySnapshot snapshot = await studentsQuery.get();
         studentDocs = snapshot.docs;
       } else {
         if (_requireExactGroupCombination) {
-          // For exact group combination
+          
           if (surveyDeptsUpper.length <= 2) {
-            // For one or two departments, we want exact match
+            
             final exactGroup = surveyDeptsUpper.join('/');
             QuerySnapshot snapshot =
                 await studentsQuery.where('group', isEqualTo: exactGroup).get();
             studentDocs = snapshot.docs;
           } else {
-            // Cannot use exact match with more than two departments
+            
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                   content: Text(
@@ -146,8 +148,8 @@ class _CreateSurveyState extends State<CreateSurvey> {
             return;
           }
         } else if (_showOnlySelectedDepartments) {
-          // For separate departments (show to each individually)
-          // Get students whose group exactly matches any of the selected departments
+          
+          
           Set<String> processedIds = {};
 
           for (String dept in surveyDeptsUpper) {
@@ -162,8 +164,8 @@ class _CreateSurveyState extends State<CreateSurvey> {
             }
           }
         } else {
-          // Default behavior: show to any group containing any of the selected departments
-          // First try to get all students
+          
+          
           QuerySnapshot allStudentsSnapshot = await studentsQuery.get();
           Set<String> processedIds = {};
 
@@ -172,7 +174,7 @@ class _CreateSurveyState extends State<CreateSurvey> {
             List<String> groupComponents =
                 group.split('/').map((e) => e.trim().toUpperCase()).toList();
 
-            // Check if any of the selected departments is in the student's group components
+            
             for (String dept in surveyDeptsUpper) {
               if (groupComponents.contains(dept)) {
                 if (!processedIds.contains(doc.id)) {
@@ -186,7 +188,7 @@ class _CreateSurveyState extends State<CreateSurvey> {
         }
       }
 
-      // Create notifications for each student
+      
       recipientCount = studentDocs.length;
 
       if (recipientCount == 0) {
@@ -196,13 +198,13 @@ class _CreateSurveyState extends State<CreateSurvey> {
 
       print("Found $recipientCount students for notifications");
 
-      // Update the survey with the recipient count
+      
       await FirebaseFirestore.instance
           .collection('surveys')
           .doc(surveyId)
           .update({'recipientCount': recipientCount});
 
-      // Create notifications in batches
+      
       final batch = FirebaseFirestore.instance.batch();
       for (var studentDoc in studentDocs) {
         final notificationRef =
@@ -230,6 +232,8 @@ class _CreateSurveyState extends State<CreateSurvey> {
   }
 
   void _finishSurvey() async {
+    if (_isSubmitting) return;
+
     final String surveyName = _surveyNameController.text.trim();
     if (_selectedDepartments.isEmpty ||
         surveyName.isEmpty ||
@@ -242,19 +246,37 @@ class _CreateSurveyState extends State<CreateSurvey> {
       );
       return;
     }
-    await _addSurveyToDatabase(surveyName, _questions);
-    _surveyNameController.clear();
+
     setState(() {
-      _questions = [];
-      _selectedDepartments = [];
-      _deadline = null;
-      _requireExactGroupCombination = false;
+      _isSubmitting = true;
     });
 
-    Navigator.popUntil(
-      context,
-      (route) => route.settings.name == '/firsrforadminn',
-    );
+    try {
+      await _addSurveyToDatabase(surveyName, _questions);
+      _surveyNameController.clear();
+      setState(() {
+        _questions = [];
+        _selectedDepartments = [];
+        _deadline = null;
+        _requireExactGroupCombination = false;
+        _isSubmitting = false;
+      });
+
+      Navigator.popUntil(
+        context,
+        (route) => route.settings.name == '/firsrforadminn',
+      );
+    } catch (e) {
+      setState(() {
+        _isSubmitting = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to create survey. Please try again."),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _selectDeadline() async {
@@ -331,7 +353,7 @@ class _CreateSurveyState extends State<CreateSurvey> {
                     color: Colors.black),
               ),
               SizedBox(height: 10),
-              // Department selection slider
+              
               Container(
                 height: 50,
                 child: ListView(
@@ -631,10 +653,30 @@ class _CreateSurveyState extends State<CreateSurvey> {
                   SizedBox(height: 10),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: Color.fromARGB(255, 253, 200, 0)),
-                    onPressed: _finishSurvey,
-                    child: Text("Finish the survey",
-                        style: TextStyle(color: Colors.black)),
+                      backgroundColor: _isSubmitting 
+                        ? Colors.grey 
+                        : Color.fromARGB(255, 253, 200, 0),
+                    ),
+                    onPressed: _isSubmitting ? null : _finishSurvey,
+                    child: _isSubmitting
+                        ? Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                ),
+                              ),
+                              SizedBox(width: 10),
+                              Text("Creating Survey...",
+                                  style: TextStyle(color: Colors.black)),
+                            ],
+                          )
+                        : Text("Finish the survey",
+                            style: TextStyle(color: Colors.black)),
                   ),
                 ],
               ),

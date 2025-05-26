@@ -14,6 +14,22 @@ class GroupDetailsScreen extends StatefulWidget {
 }
 
 class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  
+  String _normalizeArabicText(String text) {
+    
+    text = text.replaceAll(RegExp(r'[\u064B-\u065F\u0670]'), '');
+    
+    text = text.replaceAll(RegExp(r'[آأإٱ]'), 'ا');
+    
+    text = text.replaceAll('ة', 'ه');
+    
+    text = text.replaceAll('ى', 'ي');
+    return text.toLowerCase().trim();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -46,12 +62,20 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
               ),
             ),
             SizedBox(height: 20),
-            Text(
-              "List of ${widget.groupId} students",
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black),
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search by name or ID...',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase();
+                });
+              },
             ),
             SizedBox(height: 20),
             StreamBuilder<QuerySnapshot>(
@@ -66,40 +90,79 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(child: CircularProgressIndicator());
                 }
-                final students = snapshot.data?.docs ?? [];
+                final allStudents = snapshot.data?.docs ?? [];
+                
+                final students = allStudents.where((doc) {
+                  if (_searchQuery.isEmpty) return true;
+                  final student = doc.data() as Map<String, dynamic>;
+                  final normalizedName = _normalizeArabicText(student['name'].toString());
+                  final normalizedId = student['id'].toString().toLowerCase();
+                  final normalizedQuery = _normalizeArabicText(_searchQuery);
+                  return normalizedName.contains(normalizedQuery) || normalizedId.contains(normalizedQuery);
+                }).toList();
+
                 return Expanded(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: students.length,
-                    itemBuilder: (context, index) {
-                      final student =
-                          students[index].data() as Map<String, dynamic>;
-                      final studentId = student['id'];
-                      final studentName = student['name'];
-                      return StudentCard(
-                        studentId: studentId,
-                        studentName: studentName,
-                        groupId: widget.groupId,
-                        onEdit: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => EditStudentScreen(
-                                studentId: studentId,
-                                studentName: studentName,
-                                groupId: widget.groupId,
-                              ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            "List of ${widget.groupId} students",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black
                             ),
-                          );
-                        },
-                        onDelete: () async {
-                          await FirebaseFirestore.instance
-                              .collection('students')
-                              .doc(studentId)
-                              .delete();
-                        },
-                      );
-                    },
+                          ),
+                          Text(
+                            "(${students.length})",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.normal
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 20),
+                      Expanded(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: students.length,
+                          itemBuilder: (context, index) {
+                            final student = students[index].data() as Map<String, dynamic>;
+                            final studentId = student['id'];
+                            final studentName = student['name'];
+                            return StudentCard(
+                              studentId: studentId,
+                              studentName: studentName,
+                              groupId: widget.groupId,
+                              onEdit: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => EditStudentScreen(
+                                      studentId: studentId,
+                                      studentName: studentName,
+                                      groupId: widget.groupId,
+                                    ),
+                                  ),
+                                );
+                              },
+                              onDelete: () async {
+                                await FirebaseFirestore.instance
+                                    .collection('students')
+                                    .doc(studentId)
+                                    .delete();
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 );
               },
@@ -137,6 +200,12 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
         groupp: true,
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 }
 

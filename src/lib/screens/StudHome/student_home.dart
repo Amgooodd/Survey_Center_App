@@ -20,8 +20,6 @@ class StudentForm extends StatefulWidget {
 
 class _StudentFormState extends State<StudentForm> {
   final TextEditingController _searchController = TextEditingController();
-  final Set<String> _selectedDepartments = {};
-  final List<String> _departments = ['CS', 'Stat', 'Math'];
   List<Map<String, dynamic>> _surveys = [];
   List<Map<String, dynamic>> _notifications = [];
   late Timer _timer;
@@ -62,7 +60,7 @@ class _StudentFormState extends State<StudentForm> {
           .map((dept) => dept.toString().trim().toUpperCase())
           .toList();
 
-      // Check if this survey should be shown to this student
+      
       bool shouldShow = false;
 
       if (surveyDeptsUpper.contains("ALL")) {
@@ -75,7 +73,7 @@ class _StudentFormState extends State<StudentForm> {
         shouldShow = studentGroupComponents.length == 1 &&
             surveyDeptsUpper.contains(studentGroupComponents[0]);
       } else {
-        // Default behavior: show if student group contains ANY of the selected departments
+        
         shouldShow = surveyDeptsUpper.any((surveyDept) => 
             studentGroupComponents.contains(surveyDept));
       }
@@ -127,49 +125,6 @@ class _StudentFormState extends State<StudentForm> {
     });
   }
 
-  Future<void> _fetchNotifications() async {
-    QuerySnapshot snapshot = await FirebaseFirestore.instance
-        .collection('notifications')
-        .where('studentId', isEqualTo: widget.studentId)
-        .where('isRead', isEqualTo: false)
-        .get();
-
-    // Check if widget is still mounted before updating state
-    if (mounted) {
-      setState(() {
-        _notifications = snapshot.docs.map((doc) {
-          var data = doc.data() as Map<String, dynamic>;
-          data['id'] = doc.id;
-          return data;
-        }).toList();
-      });
-    }
-  }
-
-  void _clearFilter(String department) {
-    setState(() {
-      _selectedDepartments.remove(department);
-    });
-  }
-
-  void _markNotificationAsRead(String notificationId) async {
-    await FirebaseFirestore.instance
-        .collection('notifications')
-        .doc(notificationId)
-        .delete();
-    _fetchNotifications();
-  }
-
-  void _markAllNotificationsAsRead() async {
-    for (var notification in _notifications) {
-      await FirebaseFirestore.instance
-          .collection('notifications')
-          .doc(notification['id'])
-          .delete();
-    }
-    _fetchNotifications();
-  }
-
   Future<void> _updateSurveyNotifications() async {
     List<Map<String, dynamic>> newNotifications = [];
     List<String> notificationsToRemove = [];
@@ -214,6 +169,43 @@ class _StudentFormState extends State<StudentForm> {
       await FirebaseFirestore.instance
           .collection('notifications')
           .doc(notificationId)
+          .delete();
+    }
+    _fetchNotifications();
+  }
+
+  Future<void> _fetchNotifications() async {
+    QuerySnapshot snapshot = await FirebaseFirestore.instance
+        .collection('notifications')
+        .where('studentId', isEqualTo: widget.studentId)
+        .where('isRead', isEqualTo: false)
+        .get();
+
+    
+    if (mounted) {
+      setState(() {
+        _notifications = snapshot.docs.map((doc) {
+          var data = doc.data() as Map<String, dynamic>;
+          data['id'] = doc.id;
+          return data;
+        }).toList();
+      });
+    }
+  }
+
+  void _markNotificationAsRead(String notificationId) async {
+    await FirebaseFirestore.instance
+        .collection('notifications')
+        .doc(notificationId)
+        .delete();
+    _fetchNotifications();
+  }
+
+  void _markAllNotificationsAsRead() async {
+    for (var notification in _notifications) {
+      await FirebaseFirestore.instance
+          .collection('notifications')
+          .doc(notification['id'])
           .delete();
     }
     _fetchNotifications();
@@ -436,49 +428,8 @@ class _StudentFormState extends State<StudentForm> {
                       ),
                     ),
                     SizedBox(height: 10),
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.filter_list),
-                      itemBuilder: (context) => _departments.map((department) {
-                        return PopupMenuItem<String>(
-                          value: department,
-                          child: Row(
-                            children: [
-                              Checkbox(
-                                value:
-                                    _selectedDepartments.contains(department),
-                                onChanged: (value) {
-                                  setState(() {
-                                    if (value!) {
-                                      _selectedDepartments.add(department);
-                                    } else {
-                                      _selectedDepartments.remove(department);
-                                    }
-                                  });
-                                  Navigator.pop(context);
-                                },
-                              ),
-                              Text(department),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
                   ],
                 ),
-                if (_selectedDepartments.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Wrap(
-                      spacing: 8.0,
-                      children: _selectedDepartments.map((department) {
-                        return Chip(
-                          label: Text(department),
-                          deleteIcon: const Icon(Icons.close, size: 16),
-                          onDeleted: () => _clearFilter(department),
-                        );
-                      }).toList(),
-                    ),
-                  ),
                 SizedBox(height: 10),
                 FutureBuilder<DocumentSnapshot>(
                   future: FirebaseFirestore.instance
@@ -601,7 +552,14 @@ class _StudentFormState extends State<StudentForm> {
                       ),
                       Expanded(
                         child: _surveys.isEmpty
-                            ? const Center(child: CircularProgressIndicator())
+                            ? Center(
+                                child: Text(
+                                  "No surveys available.",
+                                  style: TextStyle(
+                                    color: const Color.fromARGB(255, 28, 51, 95),
+                                  ),
+                                ),
+                              )
                             : ListView.builder(
                                 itemCount: _surveys.length,
                                 itemBuilder: (context, index) {
@@ -613,20 +571,12 @@ class _StudentFormState extends State<StudentForm> {
                                           : null;
                                   bool isExpired = deadline != null &&
                                       deadline.isBefore(DateTime.now());
-                                  bool isFilteredByDepartment =
-                                      _selectedDepartments.isNotEmpty &&
-                                          !_selectedDepartments.contains(
-                                              survey['departments'][0]
-                                                  .toString()
-                                                  .trim()
-                                                  .toUpperCase());
                                   bool matchesSearch = _searchQuery.isEmpty ||
                                       survey['name']
                                           .toString()
                                           .toLowerCase()
                                           .contains(_searchQuery);
-                                  if (isFilteredByDepartment ||
-                                      !matchesSearch) {
+                                  if (!matchesSearch) {
                                     return const SizedBox.shrink();
                                   }
                                   return Card(
@@ -800,13 +750,13 @@ class _NotificationsDialogState extends State<NotificationsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate a more appropriate height based on number of notifications
-    // Each notification takes about 100px plus some padding
+    
+    
     double notificationHeight = widget.notifications.length == 1
         ? 150.0
         : 120.0 * widget.notifications.length;
 
-    // Limit maximum height to 50% of screen height
+    
     double maxHeight = MediaQuery.of(context).size.height * 0.5;
     double adaptiveHeight =
         notificationHeight < maxHeight ? notificationHeight : maxHeight;
