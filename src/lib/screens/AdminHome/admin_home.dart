@@ -1171,22 +1171,28 @@ class SurveyCard extends StatelessWidget {
     required this.survey,
   });
 
+  double _calculateTitleFontSize() {
+    if (title.length > 50) {
+      return 14.0;
+    } else if (title.length > 30) {
+      return 15.0;
+    }
+    return 16.0;
+  }
+
   Future<Map<String, int>> _getResponseStats() async {
     try {
-      
       final responseQuery = await FirebaseFirestore.instance
           .collection('students_responses')
           .where('surveyId', isEqualTo: survey.id)
           .get();
 
-      
       final uniqueRespondents = responseQuery.docs
           .map((doc) => doc.data()['studentId']?.toString())
           .whereType<String>()
           .toSet()
           .length;
 
-      
       final recipientCount = (survey.data() as Map<String, dynamic>)['recipientCount'] as int? ?? 0;
 
       return {
@@ -1204,7 +1210,7 @@ class SurveyCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 20.0),
       child: Container(
-        height: 160,
+        constraints: BoxConstraints(minHeight: 160),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
@@ -1226,45 +1232,45 @@ class SurveyCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Flexible(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: const Color.fromARGB(255, 28, 51, 95),
-                              ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: _calculateTitleFontSize(),
+                              fontWeight: FontWeight.bold,
+                              color: const Color.fromARGB(255, 28, 51, 95),
                             ),
                           ),
-                          FutureBuilder<Map<String, int>>(
-                            future: _getResponseStats(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState == ConnectionState.waiting) {
-                                return const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                );
-                              }
-                              
-                              final unique = snapshot.data?['unique'] ?? 0;
-                              final total = snapshot.data?['total'] ?? 0;
-                              
-                              return Text(
-                                '$unique/$total responses',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color.fromARGB(255, 43, 77, 140),
-                                ),
+                        ),
+                        FutureBuilder<Map<String, int>>(
+                          future: _getResponseStats(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
                               );
-                            },
-                          ),
-                        ],
-                      ),
+                            }
+                            
+                            final unique = snapshot.data?['unique'] ?? 0;
+                            final total = snapshot.data?['total'] ?? 0;
+                            
+                            return Text(
+                              '$unique/$total responses',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color.fromARGB(255, 43, 77, 140),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
+                    SizedBox(height: 8),
                     Text(
                       subtitle,
                       style: TextStyle(
@@ -1283,35 +1289,34 @@ class SurveyCard extends StatelessWidget {
                           fontSize: 12,
                           color: const Color.fromARGB(255, 70, 94, 105)),
                     ),
-                    Flexible(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color.fromARGB(255, 253, 200, 0),
-                                minimumSize: Size(100, 36),
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8)),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => SurveyDetailsScreen(survey: survey),
-                                  settings: RouteSettings(
-                                    arguments: ModalRoute.of(context)?.settings.arguments,
-                                  ),
+                    SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color.fromARGB(255, 253, 200, 0),
+                              minimumSize: Size(100, 36),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8)),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => SurveyDetailsScreen(survey: survey),
+                                settings: RouteSettings(
+                                  arguments: ModalRoute.of(context)?.settings.arguments,
                                 ),
-                              );
-                            },
-                            child: Text(
-                              'View Details',
-                              style: TextStyle(color: Colors.black),
-                            ),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            'View Details',
+                            style: TextStyle(color: Colors.black),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

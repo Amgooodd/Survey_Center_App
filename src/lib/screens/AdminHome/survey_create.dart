@@ -56,7 +56,7 @@ class _CreateSurveyState extends State<CreateSurvey> {
         _questions.add({
           'title': 'Question $questionNumber',
           'type': 'multiple_choice',
-          'options': ['Yes', 'No', 'Maybe'],
+          'options': ['موافق تماماً', 'موافق', 'إلى حد ما', 'غير موافق', 'غير موافق تماماً'],
         });
       }
     });

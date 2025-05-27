@@ -16,6 +16,8 @@ class SurveyAnalysisPage extends StatefulWidget {
 class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
   Map<String, Map<String, int>> questionAnswerCounts = {};
   Map<String, Map<String, int>> filteredQuestionAnswerCounts = {};
+  Map<String, List<String>> questionOptions = {};
+  List<String> originalQuestionOrder = [];
   bool _loading = true;
 
   @override
@@ -26,10 +28,33 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
 
   Future<void> fetchSurveyAnswers() async {
     try {
+      
+      final surveyDoc = await FirebaseFirestore.instance
+          .collection('surveys')
+          .doc(widget.surveyId)
+          .get();
+      
+      if (surveyDoc.exists) {
+        final questions = surveyDoc.data()?['questions'] as List<dynamic>?;
+        if (questions != null) {
+          
+          originalQuestionOrder = questions.map((q) => q['title'] as String).toList();
+          
+          for (var question in questions) {
+            if (question['options'] != null) {
+              questionOptions[question['title']] = 
+                List<String>.from(question['options'] as List<dynamic>);
+            }
+          }
+        }
+      }
+
+      
       final snapshot = await FirebaseFirestore.instance
           .collection('students_responses')
           .where('surveyId', isEqualTo: widget.surveyId)
           .get();
+
       for (var doc in snapshot.docs) {
         final data = doc.data();
         final answers = Map<String, dynamic>.from(data['answers'] ?? {});
@@ -40,9 +65,13 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
         });
       }
 
-      // Filter questions with more than 3 unique answers
-      filteredQuestionAnswerCounts = Map.from(questionAnswerCounts)
-        ..removeWhere((question, answers) => answers.length > 3);
+      
+      filteredQuestionAnswerCounts = {};
+      for (String question in originalQuestionOrder) {
+        if (questionAnswerCounts.containsKey(question) && questionOptions.containsKey(question)) {
+          filteredQuestionAnswerCounts[question] = questionAnswerCounts[question]!;
+        }
+      }
 
       setState(() {
         _loading = false;
@@ -52,6 +81,43 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
       setState(() {
         _loading = false;
       });
+    }
+  }
+
+  Color getColorForOption(String question, String option) {
+    final options = questionOptions[question] ?? [];
+    final index = options.indexOf(option);
+    final totalOptions = options.length;
+
+    final List<Color> allColors = [
+      const Color(0xFF006400),              
+      Colors.green,                         
+      Colors.orange,                        
+      Colors.red,                           
+      const Color.fromARGB(255, 165, 0, 0), 
+      Colors.purple,                        
+      Colors.blue,
+      Colors.teal,
+      Colors.brown,
+      const Color.fromARGB(255, 255, 128, 0),  
+      Colors.indigo,
+      Colors.pink,
+      const Color.fromARGB(255, 128, 0, 128),  
+      Colors.cyan,
+      const Color.fromARGB(255, 0, 128, 128),  
+    ];
+
+    if (totalOptions == 3) {
+      
+      final threeOptionsColors = [
+        Colors.green,
+        Colors.orange,
+        Colors.red,
+      ];
+      return index >= 0 && index < threeOptionsColors.length ? threeOptionsColors[index] : Colors.grey;
+    } else {
+      
+      return index >= 0 && index < allColors.length ? allColors[index] : Colors.grey;
     }
   }
 
@@ -80,150 +146,6 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
     });
   }
 
-  Widget buildChartsForQuestion(String question, Map<String, int> answers) {
-    final total = answers.values.fold(0, (a, b) => a + b);
-    final List<Color> colors = [
-      Colors.blue,
-      Colors.red,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-      Colors.teal,
-      Colors.pink,
-      Colors.amber,
-      Colors.indigo,
-      Colors.cyan,
-      Colors.brown,
-      Colors.lime,
-      Colors.deepOrange,
-      Colors.lightBlue,
-      Colors.lightGreen,
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 10),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.teal.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.teal, width: 1),
-          ),
-          child: Text(
-            question,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.teal,
-            ),
-          ),
-        ),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 2,
-              child: SizedBox(
-                height: 180,
-                child: PieChart(
-                  PieChartData(
-                    sectionsSpace: 2,
-                    centerSpaceRadius: 30,
-                    sections:
-                        answers.entries.toList().asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final value = entry.value;
-                      final percentage = (value.value / total) * 100;
-                      return PieChartSectionData(
-                        value: value.value.toDouble(),
-                        color: colors[index],
-                        title: "${percentage.toStringAsFixed(1)}%",
-                        radius: 60,
-                        titleStyle: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      );
-                    }).toList(),
-                    pieTouchData: PieTouchData(enabled: true),
-                  ),
-                  swapAnimationDuration: const Duration(milliseconds: 800),
-                  swapAnimationCurve: Curves.easeInOut,
-                ),
-              ),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              flex: 3,
-              child: SizedBox(
-                height: 180,
-                child: BarChart(
-                  BarChartData(
-                    alignment: BarChartAlignment.spaceAround,
-                    maxY: (answers.values.reduce(max)).toDouble() + 2,
-                    barGroups:
-                        answers.entries.toList().asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final item = entry.value;
-                      return BarChartGroupData(
-                        x: index,
-                        barRods: [
-                          BarChartRodData(
-                            toY: item.value.toDouble(),
-                            width: 16,
-                            color: colors[index],
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ],
-                      );
-                    }).toList(),
-                    titlesData: FlTitlesData(
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 30,
-                        ),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          getTitlesWidget: (value, _) {
-                            int index = value.toInt();
-                            if (index < answers.length) {
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: Text(
-                                  answers.keys.elementAt(index),
-                                  style: const TextStyle(fontSize: 10),
-                                ),
-                              );
-                            }
-                            return const SizedBox();
-                          },
-                        ),
-                      ),
-                      topTitles: AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      rightTitles: AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        buildTable(answers),
-        const Divider(thickness: 2, height: 40),
-      ],
-    );
-  }
-
   Widget buildTable(Map<String, int> answers) {
     final total = answers.values.fold(0, (a, b) => a + b);
     return DataTable(
@@ -232,7 +154,7 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
             label:
                 Text("Answer", style: TextStyle(fontWeight: FontWeight.bold))),
         DataColumn(label: Text("Frequency")),
-        DataColumn(label: Text("Percentage %")),
+        DataColumn(label: Text("Percentage")),
       ],
       rows: answers.entries.map((entry) {
         final percentage = (entry.value / total) * 100;
@@ -251,16 +173,7 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
       appBar: AppBar(
         title: Text('Students answers', style: TextStyle(color: Colors.white)),
         backgroundColor: const Color.fromARGB(255, 28, 51, 95),
-        /*actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.table_chart,
-              color: Colors.white,
-            ),
-            tooltip: 'تصدير Excel',
-            onPressed: _loading ? null : exportToExcel,
-          ),
-        ],*/
+       
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
@@ -290,9 +203,11 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
                         ),
                       ),
                     ),
-                  ...filteredQuestionAnswerCounts.entries.map((entry) {
+                  ...originalQuestionOrder.where((question) => 
+                    filteredQuestionAnswerCounts.containsKey(question)
+                  ).map((question) {
                     return buildChartsAndTableForQuestion(
-                        entry.key, entry.value);
+                        question, filteredQuestionAnswerCounts[question]!);
                   }).toList(),
                 ],
               ),
@@ -300,26 +215,16 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
     );
   }
 
-  Widget buildChartsAndTableForQuestion(
-      String question, Map<String, int> answers) {
+  Widget buildChartsAndTableForQuestion(String question, Map<String, int> answers) {
     final total = answers.values.fold(0, (a, b) => a + b);
-    final List<Color> colors = [
-      Colors.green,
-      Colors.red,
-      Colors.blue,
-      Colors.orange,
-      Colors.purple,
-      Colors.teal,
-      Colors.pink,
-      Colors.amber,
-      Colors.indigo,
-      Colors.cyan,
-      Colors.brown,
-      Colors.lime,
-      Colors.deepOrange,
-      Colors.lightBlue,
-      Colors.lightGreen,
-    ];
+    
+    
+    final sortedAnswers = Map.fromEntries(
+      questionOptions[question]?.where((option) => answers.containsKey(option))
+          .map((option) => MapEntry(option, answers[option] ?? 0)) ??
+      answers.entries
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -329,15 +234,14 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
           decoration: BoxDecoration(
             color: Color.fromARGB(255, 253, 200, 0),
             borderRadius: BorderRadius.circular(12),
-            border:
-                Border.all(color: Color.fromARGB(255, 253, 200, 0), width: 1),
+            border: Border.all(color: Color.fromARGB(255, 253, 200, 0), width: 1),
           ),
           child: Text(
             question,
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: const Color.fromARGB(255, 28, 51, 95),
+              color: Color.fromARGB(255, 28, 51, 95),
             ),
           ),
         ),
@@ -353,14 +257,12 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
                   PieChartData(
                     sectionsSpace: 2,
                     centerSpaceRadius: 20,
-                    sections:
-                        answers.entries.toList().asMap().entries.map((entry) {
-                      final index = entry.key;
+                    sections: sortedAnswers.entries.map((entry) {
                       final value = entry.value;
-                      final percentage = (value.value / total) * 100;
+                      final percentage = (value / total) * 100;
                       return PieChartSectionData(
-                        value: value.value.toDouble(),
-                        color: colors[index],
+                        value: value.toDouble(),
+                        color: getColorForOption(question, entry.key),
                         title: "${percentage.toStringAsFixed(1)}%",
                         radius: 50,
                         titleStyle: const TextStyle(
@@ -372,8 +274,6 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
                     }).toList(),
                     pieTouchData: PieTouchData(enabled: true),
                   ),
-                  swapAnimationDuration: const Duration(milliseconds: 800),
-                  swapAnimationCurve: Curves.easeInOut,
                 ),
               ),
             ),
@@ -386,8 +286,7 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
                   BarChartData(
                     alignment: BarChartAlignment.spaceAround,
                     maxY: (answers.values.reduce(max)).toDouble() + 2,
-                    barGroups:
-                        answers.entries.toList().asMap().entries.map((entry) {
+                    barGroups: sortedAnswers.entries.toList().asMap().entries.map((entry) {
                       final index = entry.key;
                       final item = entry.value;
                       return BarChartGroupData(
@@ -396,7 +295,7 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
                           BarChartRodData(
                             toY: item.value.toDouble(),
                             width: 16,
-                            color: colors[index],
+                            color: getColorForOption(question, item.key),
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ],
@@ -414,11 +313,11 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
                           showTitles: true,
                           getTitlesWidget: (value, _) {
                             int index = value.toInt();
-                            if (index < answers.length) {
+                            if (index < sortedAnswers.length) {
                               return Padding(
                                 padding: const EdgeInsets.only(top: 8.0),
                                 child: Text(
-                                  answers.keys.elementAt(index),
+                                  sortedAnswers.keys.elementAt(index),
                                   style: const TextStyle(fontSize: 10),
                                 ),
                               );
@@ -441,7 +340,7 @@ class _SurveyAnalysisPageState extends State<SurveyAnalysisPage> {
           ],
         ),
         const SizedBox(height: 10),
-        buildTable(answers),
+        buildTable(sortedAnswers),
         const Divider(thickness: 2, height: 40),
       ],
     );
