@@ -19,7 +19,7 @@ class _FirstForAdminState extends State<FirstForAdmin> {
   String _searchQuery = '';
   final Set<String> _selectedDepartments = {};
   String _selectedSortOption = 'newest';
-  final List<String> _departments = ['CS', 'Stat', 'Math','PHY','Biology','chemistry'];
+  final List<String> _departments = ['All','CS', 'Stat', 'Math','PHY','Biology','chemistry'];
   final ValueNotifier<String> _progressText = ValueNotifier<String>('');
   OverlayEntry? _overlayEntry;
 

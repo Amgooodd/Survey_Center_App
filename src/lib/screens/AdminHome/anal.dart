@@ -245,14 +245,6 @@ class _DataPageState extends State<DataPage> with WidgetsBindingObserver {
             );
           },
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              fetchData();
-            },
-          ),
-        ],
         centerTitle: true,
       ),
       backgroundColor: Colors.white,
@@ -480,16 +472,17 @@ class _DataPageState extends State<DataPage> with WidgetsBindingObserver {
                   ),
                 ),
 
-                
+                const SizedBox(height: 40),
+
                 if (sortedDepartments.isNotEmpty) ...[
                   Container(
-                    height: 300,
+                    height: 200,
                     padding: const EdgeInsets.all(16),
                     child: PieChart(
                       PieChartData(
                         sectionsSpace: 0,
-                        centerSpaceRadius: 60,
-                        startDegreeOffset: 180,  
+                        centerSpaceRadius: 40,
+                        startDegreeOffset: 180,
                         sections: sortedDepartments.map((entry) {
                           final percentage = (entry.value / totalStudents) * 100;
                           return PieChartSectionData(
@@ -509,7 +502,8 @@ class _DataPageState extends State<DataPage> with WidgetsBindingObserver {
                     ),
                   ),
 
-                  
+                  const SizedBox(height: 50),
+
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: GridView.builder(
@@ -578,6 +572,7 @@ class _DataPageState extends State<DataPage> with WidgetsBindingObserver {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: Color(0xFF1A237E),
                       ),
                       textAlign: TextAlign.center,
                     ),
