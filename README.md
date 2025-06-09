@@ -71,3 +71,4 @@ Ensure the following are installed before setup:
 - **Permission issues**: On macOS, grant emulator or app folder full disk access if needed.
 
 For more assistance, refer to [Flutter Docs](https://flutter.dev/docs) and [Firebase Docs](https://firebase.google.com/docs).
+am
