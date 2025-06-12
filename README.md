@@ -31,8 +31,8 @@ Ensure the following are installed before setup:
 ### 🪟 For Windows
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/AkumaHeo/student_questionnaire.git
-   cd survey-center
+   git clone https://github.com/Amgooodd/Survey_Center_App.git
+   cd Survey_Center_App
    ```
 
 2. **Install Flutter Dependencies**
