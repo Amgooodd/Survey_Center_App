@@ -41,17 +41,8 @@ Ensure the following are installed before setup:
    flutter pub get
    ```
 
-3. **Set up Firebase**
-   - Create a Firebase project.
-   - Add an Android app in Firebase Console.
-   - Replace `google-services.json` in `android/app`.
-   - Run:
-     ```bash
-     firebase login
-     firebase init
-     ```
 
-4. **Run the App**
+3. **Run the App**
    ```bash
    flutter run
    ```
