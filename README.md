@@ -33,6 +33,7 @@ Ensure the following are installed before setup:
    ```bash
    git clone https://github.com/Amgooodd/Survey_Center_App.git
    cd Survey_Center_App
+   cd src
    ```
 
 2. **Install Flutter Dependencies**
