@@ -35,13 +35,13 @@ Ensure the following are installed before setup:
 ### 🪟 For Windows
 
 1. **Required Software**
-    ```bash
-    Install Flutter SDK https://flutter.dev/docs/get-started/install
-    Install VS Code https://code.visualstudio.com/
-    Install Android Studio https://developer.android.com/studio
-    Install Git https://git-scm.com/downloads
-    Install Flutter and Dart extensions in VS Code
-    ```
+    
+   - Install [Flutter SDK](https://flutter.dev/docs/get-started/install)
+   - Install [VS Code](https://code.visualstudio.com/)
+   - Install [Android Studio](https://developer.android.com/studio)
+   - Install [Git]https://git-scm.com/downloads
+   - Install Flutter and Dart extensions in VS Code
+    
 
 2. **Clone the Repository**
    ```bash
