@@ -38,7 +38,6 @@ app.*.map.json
 /android/app/build/
 /android/build/
 /android/local.properties
-/android/gradle.properties
 /android/key.properties
 /android/keystore.properties
 /android/app/debug.keystore
