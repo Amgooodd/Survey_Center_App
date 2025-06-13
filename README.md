@@ -39,7 +39,7 @@ Ensure the following are installed before setup:
    - Install [Flutter SDK](https://flutter.dev/docs/get-started/install)
    - Install [VS Code](https://code.visualstudio.com/)
    - Install [Android Studio](https://developer.android.com/studio)
-   - Install [Git]https://git-scm.com/downloads
+   - Install [Git](https://git-scm.com/downloads)
    - Install Flutter and Dart extensions in VS Code
     
 
