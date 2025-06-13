@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:student_questionnaire/Features/firebase_options.dart';
 import 'app_routes.dart';
 import 'providers/user_provider.dart';
-import 'connectivity_service.dart'; 
+import 'connectivity_service.dart';
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -23,7 +23,8 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     _connectivityService.connectionStatus.listen((connected) {
       if (!connected) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _showNoInternetDialog());
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _showNoInternetDialog());
       } else {
         _dismissDialog();
       }
@@ -39,20 +40,20 @@ class _MyAppState extends State<MyApp> {
     _overlayEntry = OverlayEntry(
       builder: (context) => Stack(
         children: [
-          
           ModalBarrier(
             dismissible: false,
             color: Colors.black54,
           ),
-          
           Center(
             child: AlertDialog(
               title: const Text('No Internet Connection'),
-              content: const Text('Please check your connection and try again.'),
+              content:
+                  const Text('Please check your connection and try again.'),
               actions: [
                 TextButton(
                   onPressed: () async {
-                    final hasConnection = await _connectivityService.checkConnection();
+                    final hasConnection =
+                        await _connectivityService.checkConnection();
                     if (hasConnection) _dismissDialog();
                   },
                   child: const Text('Retry'),
@@ -101,7 +102,7 @@ class _MyAppState extends State<MyApp> {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform, 
+    options: DefaultFirebaseOptions.currentPlatform,
   );
   runApp(const MyApp());
 }
